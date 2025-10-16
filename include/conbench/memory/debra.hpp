@@ -15,21 +15,16 @@ struct alignas(std::hardware_destructive_interference_size) ThreadState {
   uint64_t check_next{0};
   uint64_t ops_since_check{0};
 
-  bag::RetiredBlock<RecordType>* bags[3]{nullptr, nullptr, nullptr};
+  bag::Block<RecordType>* bags[3]{nullptr, nullptr, nullptr};
   int64_t index{0};
 };
 
 template <typename RecordType> class Manager {
 public:
-  static Manager<RecordType>& instance() {
-    static Manager<RecordType> instance_;
-    return instance_;
-  }
-
   Manager(const Manager&) = delete;
   Manager& operator=(const Manager&) = delete;
 
-  void retire(bag::RetiredBlock<RecordType>* node) {
+  void retire(bag::Block<RecordType>* node) {
     if (!node)
       return;
     auto& state = get_thread_state();
@@ -98,9 +93,9 @@ private:
     state.index = reclaim_idx;
   }
 
-  void free_bag(bag::RetiredBlock<RecordType>* node) {
+  void free_bag(bag::Block<RecordType>* node) {
     while (node) {
-      bag::RetiredBlock<RecordType>* next = node->next;
+      bag::Block<RecordType>* next = node->next;
       delete node;
       node = next;
     }
