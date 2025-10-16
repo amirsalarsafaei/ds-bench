@@ -4,19 +4,17 @@
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
-#include <new> 
+#include <new>
 
 namespace conbench::memory::debra {
 
-template<typename RecordType>
-struct RetiredBlock {
+template <typename RecordType> struct RetiredBlock {
   virtual ~RetiredBlock() = default;
   RetiredBlock *next{nullptr};
-  RecordType* block[Config::DEBRA_BLOCK_SIZE];
+  RecordType *block[Config::DEBRA_BLOCK_SIZE];
 };
 
-
-template<typename RecordType>
+template <typename RecordType>
 struct alignas(std::hardware_destructive_interference_size) ThreadState {
   int64_t tid{-1};
   uint64_t check_next{0};
@@ -26,10 +24,9 @@ struct alignas(std::hardware_destructive_interference_size) ThreadState {
   int64_t index{0};
 };
 
-template<typename RecordType>
-class Manager {
+template <typename RecordType> class Manager {
 public:
-  static Manager<RecordType>& instance() {
+  static Manager<RecordType> &instance() {
     static Manager<RecordType> instance_;
     return instance_;
   }
@@ -73,9 +70,9 @@ public:
             get_quiescent_bit(other_announcement)) {
           uint64_t c = ++state.check_next;
           if (c >= num_threads && c >= incr_threshold_) {
-            global_epoch_.value.compare_exchange_strong(read_epoch, read_epoch + 2,
-                                                  std::memory_order_acq_rel,
-                                                  std::memory_order_acquire);
+            global_epoch_.value.compare_exchange_strong(
+                read_epoch, read_epoch + 2, std::memory_order_acq_rel,
+                std::memory_order_acquire);
           }
         }
       }
@@ -90,7 +87,7 @@ private:
       announce_[i].value.store(1L, std::memory_order_relaxed);
     }
   }
-  ~Manager() { }
+  ~Manager() {}
 
   static bool get_quiescent_bit(int64_t announcement) {
     return announcement & 1L;
@@ -124,11 +121,11 @@ private:
 
   void register_thread(ThreadState<RecordType> &state) {
     uint64_t tid = num_threads_.value.fetch_add(1, std::memory_order_relaxed);
-    
+
     if (tid >= Config::MAX_THREADS) {
-		abort();
+      abort();
     }
-    
+
     state.tid = static_cast<int64_t>(tid);
     state.index = 0;
     announce_[state.tid].value.store(
@@ -152,10 +149,11 @@ private:
   static constexpr uint64_t incr_threshold_ = Config::DEBRA_INCR_THRESHOLD;
 };
 
-template<typename RecordType>
-class Guard {
+template <typename RecordType> class Guard {
 public:
-  Guard(Manager<RecordType> &manager) : manager_(manager) { manager_.enter_q_state(); }
+  Guard(Manager<RecordType> &manager) : manager_(manager) {
+    manager_.enter_q_state();
+  }
   ~Guard() { manager_.leave_q_state(); }
 
   Guard(const Guard &) = delete;
