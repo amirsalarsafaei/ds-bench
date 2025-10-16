@@ -1,6 +1,7 @@
 #pragma once
 
-#include "conbench/config.hpp"
+#include "../config.hpp"
+#include "bag/block.hpp"
 #include <atomic>
 #include <cstdint>
 #include <cstdlib>
@@ -8,36 +9,30 @@
 
 namespace conbench::memory::debra {
 
-template <typename RecordType> struct RetiredBlock {
-  virtual ~RetiredBlock() = default;
-  RetiredBlock *next{nullptr};
-  RecordType *block[Config::DEBRA_BLOCK_SIZE];
-};
-
 template <typename RecordType>
 struct alignas(std::hardware_destructive_interference_size) ThreadState {
   int64_t tid{-1};
   uint64_t check_next{0};
   uint64_t ops_since_check{0};
 
-  RetiredBlock<RecordType> *bags[3]{nullptr, nullptr, nullptr};
+  bag::RetiredBlock<RecordType>* bags[3]{nullptr, nullptr, nullptr};
   int64_t index{0};
 };
 
 template <typename RecordType> class Manager {
 public:
-  static Manager<RecordType> &instance() {
+  static Manager<RecordType>& instance() {
     static Manager<RecordType> instance_;
     return instance_;
   }
 
-  Manager(const Manager &) = delete;
-  Manager &operator=(const Manager &) = delete;
+  Manager(const Manager&) = delete;
+  Manager& operator=(const Manager&) = delete;
 
-  void retire(RetiredBlock<RecordType> *node) {
+  void retire(bag::RetiredBlock<RecordType>* node) {
     if (!node)
       return;
-    auto &state = get_thread_state();
+    auto& state = get_thread_state();
     node->next = state.bags[state.index];
     state.bags[state.index] = node;
   }
@@ -48,7 +43,7 @@ public:
   }
 
   void leave_q_state() {
-    auto &state = get_thread_state();
+    auto& state = get_thread_state();
     int64_t read_epoch = global_epoch_.value.load(std::memory_order_acquire);
 
     if (!is_equal(read_epoch,
@@ -96,22 +91,22 @@ private:
     return epoch == (announcement & ~1L);
   }
 
-  void rotate_and_reclaim(ThreadState<RecordType> &state) {
+  void rotate_and_reclaim(ThreadState<RecordType>& state) {
     int64_t reclaim_idx = (state.index + 1) % 3;
     free_bag(state.bags[reclaim_idx]);
     state.bags[reclaim_idx] = nullptr;
     state.index = reclaim_idx;
   }
 
-  void free_bag(RetiredBlock<RecordType> *node) {
+  void free_bag(bag::RetiredBlock<RecordType>* node) {
     while (node) {
-      RetiredBlock<RecordType> *next = node->next;
+      bag::RetiredBlock<RecordType>* next = node->next;
       delete node;
       node = next;
     }
   }
 
-  ThreadState<RecordType> &get_thread_state() {
+  ThreadState<RecordType>& get_thread_state() {
     thread_local ThreadState<RecordType> state;
     if (state.tid == -1) {
       register_thread(state);
@@ -119,7 +114,7 @@ private:
     return state;
   }
 
-  void register_thread(ThreadState<RecordType> &state) {
+  void register_thread(ThreadState<RecordType>& state) {
     uint64_t tid = num_threads_.value.fetch_add(1, std::memory_order_relaxed);
 
     if (tid >= Config::MAX_THREADS) {
@@ -151,16 +146,16 @@ private:
 
 template <typename RecordType> class Guard {
 public:
-  Guard(Manager<RecordType> &manager) : manager_(manager) {
+  Guard(Manager<RecordType>& manager) : manager_(manager) {
     manager_.enter_q_state();
   }
   ~Guard() { manager_.leave_q_state(); }
 
-  Guard(const Guard &) = delete;
-  Guard &operator=(const Guard &) = delete;
+  Guard(const Guard&) = delete;
+  Guard& operator=(const Guard&) = delete;
 
 private:
-  Manager<RecordType> &manager_;
+  Manager<RecordType>& manager_;
 };
 
 } // namespace conbench::memory::debra

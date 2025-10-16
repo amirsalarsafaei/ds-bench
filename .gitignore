@@ -37,9 +37,40 @@
 *.out
 *.app
 
-# debug information files
+# Debug information files
 *.dwo
 
+# Build directories
+build*/
 .cache/
-build
 compile_commands.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Coverage files
+*.gcno
+*.gcda
+*.gcov
+coverage/
+
+# Profiling files
+*.prof
+gmon.out
+
+# Temporary files
+*.tmp
+*.temp
